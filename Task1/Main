@@ -1,0 +1,69 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load dataset
+df = pd.read_csv('train.csv')  
+
+# Drop rows with missing Postal Code
+df = df.dropna(subset=['Postal Code'])
+
+# Convert date columns to datetime
+df['Order Date'] = pd.to_datetime(df['Order Date'], dayfirst=True)
+df['Ship Date'] = pd.to_datetime(df['Ship Date'], dayfirst=True)
+
+# Add time-based features
+df['Order Year'] = df['Order Date'].dt.year
+df['Order Month'] = df['Order Date'].dt.month_name()
+df['Order Weekday'] = df['Order Date'].dt.day_name()
+
+# Add computed fields
+df['Shipping Duration (days)'] = (df['Ship Date'] - df['Order Date']).dt.days
+
+# KPI Calculation
+total_sales = df['Sales'].sum()
+avg_sales_per_order = df.groupby('Order ID')['Sales'].sum().mean()
+best_selling_product = df.groupby('Product Name')['Sales'].sum().idxmax()
+most_profitable_segment = df.groupby('Segment')['Sales'].sum().idxmax()
+
+# Print KPIs
+print("📊 Total Sales: ${:,.2f}".format(total_sales))
+print("📦 Average Sales per Order: ${:,.2f}".format(avg_sales_per_order))
+print("🥇 Best-Selling Product:", best_selling_product)
+print("💼 Most Profitable Segment:", most_profitable_segment)
+
+
+# Visualizations
+
+fig, axs = plt.subplots(3, 2, figsize=(18, 16))
+fig.suptitle("Sales Data Analysis Dashboard", fontsize=20)
+
+# 1. Sales by Segment
+df.groupby('Segment')['Sales'].sum().plot(kind='bar', ax=axs[0, 0], title='Sales by Segment', ylabel='Sales')
+
+# 2. Monthly Sales Trend
+monthly_sales = df.groupby('Order Month')['Sales'].sum().reindex([
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+])
+monthly_sales.plot(kind='line', ax=axs[0, 1], title='Monthly Sales Trend', marker='o')
+axs[0, 1].set_ylabel('Sales')
+
+# 3. Sales by Category
+df.groupby('Category')['Sales'].sum().plot(kind='pie', ax=axs[1, 0], title='Sales by Category', autopct='%1.1f%%')
+
+# 4. Top 10 Products by Sales
+top_products = df.groupby('Product Name')['Sales'].sum().sort_values(ascending=False).head(10)
+top_products.plot(kind='barh', ax=axs[1, 1], title='Top 10 Products by Sales')
+axs[1, 1].invert_yaxis()
+
+# 5. Sales by City (Top 10)
+top_cities = df.groupby('City')['Sales'].sum().sort_values(ascending=False).head(10)
+top_cities.plot(kind='bar', ax=axs[2, 0], title='Top 10 Cities by Sales')
+
+# 6. Shipping Duration Distribution
+sns.histplot(df['Shipping Duration (days)'], bins=15, ax=axs[2, 1])
+axs[2, 1].set_title('Shipping Duration Distribution')
+
+plt.tight_layout(rect=[0, 0, 1, 0.96])
+plt.show()
